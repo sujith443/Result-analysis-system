@@ -1,0 +1,233 @@
+/* Main Styles for Result Analysis System */
+
+/* General Styles */
+body {
+  font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f8f9fa;
+  color: #333;
+}
+
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Navbar Customization */
+.navbar {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+/* Card Styles */
+.card {
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1.5rem;
+  border: none;
+}
+
+.card-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  font-weight: 600;
+}
+
+/* Dashboard Cards */
+.dashboard .card {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.dashboard .card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* File Upload Styles */
+.file-upload .form-control:focus {
+  box-shadow: none;
+  border-color: #0d6efd;
+}
+
+.file-upload .card {
+  border: 1px dashed #dee2e6;
+  background-color: #fff;
+}
+
+/* Table Styles */
+.table-responsive {
+  border-radius: 0.5rem;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.table {
+  margin-bottom: 0;
+}
+
+.table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sortable-header:hover {
+  background-color: #e9ecef;
+}
+
+/* Result Details Styles */
+.result-details .card {
+  background-color: #fff;
+}
+
+.result-details .display-6 {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+/* Excel Download Styles */
+.excel-download .form-check-input:checked {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+/* Button Customization */
+.btn {
+  border-radius: 0.25rem;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+}
+
+.btn-primary {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+  background-color: #0b5ed7;
+  border-color: #0a58ca;
+}
+
+.btn-success {
+  background-color: #198754;
+  border-color: #198754;
+}
+
+.btn-success:hover {
+  background-color: #157347;
+  border-color: #146c43;
+}
+
+.btn-warning {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #212529;
+}
+
+.btn-warning:hover {
+  background-color: #ffca2c;
+  border-color: #ffc720;
+  color: #212529;
+}
+
+/* Form Controls */
+.form-control {
+  border-radius: 0.25rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.form-select {
+  border-radius: 0.25rem;
+  padding: 0.5rem 2.25rem 0.5rem 0.75rem;
+}
+
+.form-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .dashboard .card {
+    margin-bottom: 1rem;
+  }
+  
+  .result-details .display-6 {
+    font-size: 1.25rem;
+  }
+}
+
+/* Badge Customization */
+.badge {
+  padding: 0.5em 0.75em;
+  font-weight: 500;
+}
+
+/* Progress Bar Customization */
+.progress {
+  height: 0.75rem;
+  border-radius: 0.375rem;
+}
+
+/* Alert Customization */
+.alert {
+  border-radius: 0.375rem;
+  border: none;
+  padding: 1rem;
+}
+
+.alert-dismissible .btn-close {
+  padding: 1.25rem;
+}
+
+/* Animation for Processing */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.is-processing {
+  animation: pulse 1.5s infinite;
+}
+
+/* Utility Classes */
+.text-truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Table Row Hover Effect */
+.table-hover tbody tr:hover {
+  background-color: rgba(13, 110, 253, 0.05);
+}
+
+/* PDF and Excel Icon Colors */
+.bi-file-pdf {
+  color: #dc3545;
+}
+
+.bi-file-excel {
+  color: #198754;
+}
