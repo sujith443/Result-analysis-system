@@ -1,3 +1,4 @@
+// App.jsx - Main application component
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
 import Navbar from './components/Navbar';
@@ -6,8 +7,10 @@ import FileUpload from './components/FileUpload';
 import ResultsList from './components/ResultsList';
 import ResultDetails from './components/ResultDetails';
 import ExcelDownload from './components/ExcelDownload';
+import BatchAnalysis from './components/BatchAnalysis';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import "./App.css";
+
 // Wrapper component to handle the result parameter
 const ResultDetailsWrapper = ({ processedResults }) => {
   const { id } = useParams();
@@ -19,6 +22,7 @@ function App() {
   // State management for the application
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [processedResults, setProcessedResults] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   // Load any saved state from localStorage
   useEffect(() => {
@@ -30,6 +34,17 @@ function App() {
         console.error('Error loading saved results:', error);
       }
     }
+    
+    const savedFiles = localStorage.getItem('uploadedFiles');
+    if (savedFiles) {
+      try {
+        setUploadedFiles(JSON.parse(savedFiles));
+      } catch (error) {
+        console.error('Error loading saved files:', error);
+      }
+    }
+    
+    setLoading(false);
   }, []);
   
   // Save results to localStorage when they change
@@ -38,6 +53,13 @@ function App() {
       localStorage.setItem('processedResults', JSON.stringify(processedResults));
     }
   }, [processedResults]);
+  
+  // Save uploaded files to localStorage when they change
+  useEffect(() => {
+    if (uploadedFiles.length > 0) {
+      localStorage.setItem('uploadedFiles', JSON.stringify(uploadedFiles));
+    }
+  }, [uploadedFiles]);
   
   // Handle successful uploads
   const handleUploadSuccess = (files) => {
@@ -48,6 +70,29 @@ function App() {
   const updateProcessedResults = (results) => {
     setProcessedResults(prevResults => [...prevResults, ...results]);
   };
+
+  // Clear all data
+  const clearAllData = () => {
+    setUploadedFiles([]);
+    setProcessedResults([]);
+    localStorage.removeItem('processedResults');
+    localStorage.removeItem('uploadedFiles');
+  };
+  
+  // Delete a specific result
+  const deleteResult = (id) => {
+    setProcessedResults(prevResults => prevResults.filter(result => result.id !== id));
+  };
+  
+  if (loading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center vh-100">
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <Router>
@@ -61,6 +106,7 @@ function App() {
                 <Dashboard 
                   uploadedFiles={uploadedFiles}
                   processedResults={processedResults}
+                  clearAllData={clearAllData}
                 />
               } 
             />
@@ -78,6 +124,7 @@ function App() {
               element={
                 <ResultsList 
                   results={processedResults}
+                  deleteResult={deleteResult}
                 />
               } 
             />
@@ -89,25 +136,21 @@ function App() {
               path="/excel" 
               element={<ExcelDownload results={processedResults} />} 
             />
+            <Route 
+              path="/batch-analysis" 
+              element={<BatchAnalysis results={processedResults} />} 
+            />
           </Routes>
         </div>
+        <footer className="bg-light py-3 mt-5">
+          <div className="container text-center">
+            <p className="text-muted mb-0">SVIT College Result Analysis System &copy; {new Date().getFullYear()}</p>
+            <p className="text-muted small mb-0">Jawaharlal Nehru Technological University, Anantapur</p>
+          </div>
+        </footer>
       </div>
     </Router>
   );
 }
-
-// Sample PDF Files for testing
-export const samplePDFFiles = [
-  { name: "Result_22EC011_Rajesh_Kumar.pdf", size: 245632, type: "application/pdf", lastModified: Date.now() },
-  { name: "Result_22EC012_Priya_Sharma.pdf", size: 252144, type: "application/pdf", lastModified: Date.now() },
-  { name: "Result_22EC013_Amit_Patel.pdf", size: 249021, type: "application/pdf", lastModified: Date.now() },
-  { name: "Result_22EC014_Sunita_Reddy.pdf", size: 251365, type: "application/pdf", lastModified: Date.now() },
-  { name: "Result_22EC015_Vikram_Singh.pdf", size: 247852, type: "application/pdf", lastModified: Date.now() },
-  { name: "Result_22EC016_Neha_Joshi.pdf", size: 253214, type: "application/pdf", lastModified: Date.now() },
-  { name: "Result_22EC017_Ravi_Verma.pdf", size: 248963, type: "application/pdf", lastModified: Date.now() },
-  { name: "Result_22EC018_Ananya_Gupta.pdf", size: 250415, type: "application/pdf", lastModified: Date.now() },
-  { name: "Result_22EC019_Sanjay_Desai.pdf", size: 246821, type: "application/pdf", lastModified: Date.now() },
-  { name: "Result_22EC020_Meera_Krishnan.pdf", size: 251789, type: "application/pdf", lastModified: Date.now() }
-];
 
 export default App;

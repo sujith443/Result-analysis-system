@@ -1,0 +1,85 @@
+/* Global styles for the application */
+body {
+    margin: 0;
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+      monospace;
+  }
+  
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Custom Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #0d6efd;
+    border-radius: 5px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #0a58ca;
+  }
+  
+  /* Add drop shadow to all images */
+  img {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  }
+  
+  /* Style file inputs better */
+  input[type="file"] {
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    font-size: 1rem;
+  }
+  
+  /* Fix table overflows */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* SVG styling */
+  svg {
+    overflow: visible;
+  }
+  
+  /* Print styles */
+  @media print {
+    @page {
+      margin: 1cm;
+    }
+    
+    body {
+      font-size: 12pt;
+    }
+    
+    h1 {
+      font-size: 18pt;
+    }
+    
+    h2 {
+      font-size: 16pt;
+    }
+    
+    .no-print {
+      display: none !important;
+    }
+  }

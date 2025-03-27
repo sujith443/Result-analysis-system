@@ -11,12 +11,20 @@ const ExcelDownload = ({ results }) => {
   const [successMessage, setSuccessMessage] = useState(null);
   const [exportFormat, setExportFormat] = useState('xlsx');
   const [exportType, setExportType] = useState('individual');
-  const [includeAnalytics, setIncludeAnalytics] = useState(true);
-  const [includeComparison, setIncludeComparison] = useState(true);
   
-  // Check if a specific result or all results was requested
+  // Check if specific results were requested
   useEffect(() => {
-    if (location.state?.resultId) {
+    if (location.state?.resultIds) {
+      const resultIds = location.state.resultIds;
+      // Find the results in the results array
+      const selectedResults = results.filter(r => resultIds.includes(r.id));
+      
+      if (selectedResults.length > 0) {
+        setSelectedResults(selectedResults);
+      } else {
+        setErrorMessage('The requested results were not found.');
+      }
+    } else if (location.state?.resultId) {
       const resultId = location.state.resultId;
       // Find the result in the results array
       const result = results.find(r => r.id === resultId);
@@ -57,16 +65,6 @@ const ExcelDownload = ({ results }) => {
     setSelectedResults([]);
   };
 
-  // Handle export format change
-  const handleExportFormatChange = (e) => {
-    setExportFormat(e.target.value);
-  };
-
-  // Handle export type change
-  const handleExportTypeChange = (e) => {
-    setExportType(e.target.value);
-  };
-
   // Generate and download Excel
   const handleGenerateExcel = async () => {
     if (selectedResults.length === 0) {
@@ -83,8 +81,8 @@ const ExcelDownload = ({ results }) => {
       await generateExcel(selectedResults, {
         format: exportFormat,
         exportType: exportType,
-        includeAnalytics: includeAnalytics,
-        includeComparison: includeComparison
+        includeAnalytics: true,
+        includeComparison: true
       });
       
       setSuccessMessage(`Excel file${selectedResults.length > 1 || exportType !== 'individual' ? 's' : ''} generated successfully!`);
@@ -101,16 +99,17 @@ const ExcelDownload = ({ results }) => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Generate Excel Reports</h2>
         <button 
-          className="btn btn-outline-secondary"
+          className="btn btn-outline-primary"
           onClick={() => navigate('/results')}
         >
-          Back to Results
+          <i className="bi bi-arrow-left me-2"></i>Back to Results
         </button>
       </div>
       
       {/* Alerts */}
       {errorMessage && (
         <div className="alert alert-danger alert-dismissible fade show" role="alert">
+          <i className="bi bi-exclamation-triangle-fill me-2"></i>
           {errorMessage}
           <button type="button" className="btn-close" onClick={() => setErrorMessage(null)}></button>
         </div>
@@ -118,6 +117,7 @@ const ExcelDownload = ({ results }) => {
       
       {successMessage && (
         <div className="alert alert-success alert-dismissible fade show" role="alert">
+          <i className="bi bi-check-circle-fill me-2"></i>
           {successMessage}
           <button type="button" className="btn-close" onClick={() => setSuccessMessage(null)}></button>
         </div>
@@ -126,22 +126,94 @@ const ExcelDownload = ({ results }) => {
       {/* No Results Case */}
       {results.length === 0 ? (
         <div className="alert alert-info">
-          No results available. Please process PDF files first.
-          <div className="mt-3">
+          <div className="text-center py-5">
+            <i className="bi bi-inbox display-4 text-muted mb-3"></i>
+            <h4>No Results Available</h4>
+            <p className="text-muted">Please process PDF files first to generate Excel reports.</p>
             <button 
-              className="btn btn-primary"
+              className="btn btn-primary mt-2"
               onClick={() => navigate('/upload')}
             >
-              Go to Upload
+              <i className="bi bi-upload me-2"></i>Go to Upload
             </button>
           </div>
         </div>
       ) : (
         <>
+          {/* Simple Excel Generation Card */}
+          <div className="card mb-4">
+            <div className="card-header bg-primary text-white">
+              <h5 className="mb-0">Generate Excel Reports</h5>
+            </div>
+            <div className="card-body">
+              <div className="row mb-4">
+                <div className="col-md-6">
+                  <div className="form-group mb-3">
+                    <label className="form-label">Report Type</label>
+                    <select 
+                      className="form-select"
+                      value={exportType}
+                      onChange={(e) => setExportType(e.target.value)}
+                    >
+                      <option value="individual">Individual Student Reports</option>
+                      <option value="combined">Combined Class Report</option>
+                      <option value="summary">Summary Report Only</option>
+                    </select>
+                    <div className="form-text">
+                      {exportType === 'individual' ? 
+                        'Generate separate Excel files for each selected student' : 
+                        exportType === 'combined' ? 
+                        'Generate a single Excel file with all student results' :
+                        'Generate a summary report with class statistics only'}
+                    </div>
+                  </div>
+                </div>
+                <div className="col-md-6">
+                  <div className="form-group mb-3">
+                    <label className="form-label">File Format</label>
+                    <select 
+                      className="form-select"
+                      value={exportFormat}
+                      onChange={(e) => setExportFormat(e.target.value)}
+                    >
+                      <option value="xlsx">Excel (XLSX)</option>
+                      <option value="xls">Excel 97-2003 (XLS)</option>
+                      <option value="csv">CSV</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="d-grid gap-2">
+                {/* Button for exporting all results */}
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => {
+                    selectAllResults();
+                    setTimeout(() => handleGenerateExcel(), 100);
+                  }}
+                  disabled={results.length === 0 || generatingExcel}
+                >
+                  {generatingExcel ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-file-earmark-excel me-2"></i>
+                      Download Excel for All Students
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+          
           {/* Results Selection */}
           <div className="card mb-4">
             <div className="card-header d-flex justify-content-between align-items-center bg-primary text-white">
-              <h5 className="mb-0">Select Results for Excel Generation</h5>
+              <h5 className="mb-0">Or Select Specific Students</h5>
               <div>
                 <button 
                   className="btn btn-sm btn-outline-light me-2"
@@ -178,9 +250,8 @@ const ExcelDownload = ({ results }) => {
                       </th>
                       <th>Student Name</th>
                       <th>Roll Number</th>
-                      <th>Filename</th>
-                      <th>Upload Date</th>
-                      <th>Details</th>
+                      <th>SGPA</th>
+                      <th>Percentage</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -200,87 +271,17 @@ const ExcelDownload = ({ results }) => {
                         </td>
                         <td>{result.data?.studentInfo?.name || 'N/A'}</td>
                         <td>{result.data?.studentInfo?.rollNumber || 'N/A'}</td>
-                        <td>{result.fileName}</td>
-                        <td>{new Date(result.uploadDate).toLocaleString()}</td>
-                        <td>
-                          <button 
-                            className="btn btn-sm btn-outline-info"
-                            onClick={() => navigate(`/results/${result.id}`, { state: { result } })}
-                          >
-                            View
-                          </button>
-                        </td>
+                        <td>{result.data?.sgpa || 'N/A'}</td>
+                        <td>{result.data?.percentage ? `${result.data.percentage}%` : 'N/A'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
-          </div>
-          
-          {/* Excel Options and Generation */}
-          <div className="card mb-4">
-            <div className="card-header bg-primary text-white">
-              <h5 className="mb-0">Excel Generation Options</h5>
-            </div>
-            <div className="card-body">
-              <div className="row mb-3">
-                <div className="col-md-6">
-                  <label className="form-label">Export Format</label>
-                  <select 
-                    className="form-select"
-                    value={exportFormat}
-                    onChange={handleExportFormatChange}
-                  >
-                    <option value="xlsx">Excel (XLSX)</option>
-                    <option value="xls">Excel 97-2003 (XLS)</option>
-                    <option value="csv">CSV</option>
-                  </select>
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label">Export Type</label>
-                  <select 
-                    className="form-select"
-                    value={exportType}
-                    onChange={handleExportTypeChange}
-                  >
-                    <option value="individual">Individual Reports</option>
-                    <option value="combined">Combined Report</option>
-                    <option value="summary">Summary Only</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="form-check mb-3">
-                <input 
-                  className="form-check-input" 
-                  type="checkbox" 
-                  id="includeAnalytics"
-                  checked={includeAnalytics}
-                  onChange={(e) => setIncludeAnalytics(e.target.checked)}
-                />
-                <label className="form-check-label" htmlFor="includeAnalytics">
-                  Include Analytics and Charts
-                </label>
-              </div>
-              
-              <div className="form-check mb-3">
-                <input 
-                  className="form-check-input" 
-                  type="checkbox" 
-                  id="includeComparison"
-                  checked={includeComparison}
-                  onChange={(e) => setIncludeComparison(e.target.checked)}
-                />
-                <label className="form-check-label" htmlFor="includeComparison">
-                  Include Comparative Analysis
-                </label>
-              </div>
-            </div>
-            <div className="card-footer">
-              <div className="d-grid">
+
+              <div className="d-grid mt-3">
                 <button 
-                  className="btn btn-primary"
+                  className="btn btn-success"
                   onClick={handleGenerateExcel}
                   disabled={selectedResults.length === 0 || generatingExcel}
                 >
@@ -290,7 +291,10 @@ const ExcelDownload = ({ results }) => {
                       Generating...
                     </>
                   ) : (
-                    `Generate Excel (${selectedResults.length} selected)`
+                    <>
+                      <i className="bi bi-file-earmark-excel me-2"></i>
+                      Download Excel for Selected Students ({selectedResults.length})
+                    </>
                   )}
                 </button>
               </div>

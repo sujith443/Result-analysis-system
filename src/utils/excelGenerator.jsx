@@ -1,7 +1,5 @@
 /**
- * Utility for generating Excel files
- * This file contains helper functions for creating Excel workbooks
- * and sheets with specific formatting
+ * Utility for generating Excel files with specific formatting
  */
 import * as XLSX from 'xlsx';
 
@@ -125,25 +123,29 @@ export const createSubjectResultsWorksheet = (subjects, title = 'Subject Results
   // Create worksheet
   const worksheet = XLSX.utils.aoa_to_sheet([
     [title],
+    ['SVIT College, JNTUA'],
     [],
-    ['Subject', 'Marks Obtained', 'Total Marks', 'Percentage', 'Grade']
+    ['Subject Code', 'Subject', 'Credits', 'Type', 'Internal', 'External', 'Total', 'Grade', 'Grade Points']
   ]);
   
   // Current row index (0-based)
-  let rowIndex = 3; // Start after headers
+  let rowIndex = 4; // Start after headers
   
   // Add subject data rows
   for (let i = 0; i < subjects.length; i++) {
     const subject = subjects[i];
-    const percentage = Math.round((subject.marksObtained / subject.totalMarks) * 100);
     
     // Set cells with styled data
     const row = createDataRow([
-      subject.name,
-      subject.marksObtained,
-      subject.totalMarks,
-      `${percentage}%`,
-      subject.grade
+      subject.courseCode || 'N/A',
+      subject.name || 'N/A',
+      subject.credits || 0,
+      subject.type || 'N/A',
+      subject.internalMarks || 0,
+      subject.externalMarks || 0,
+      subject.marksObtained || 0,
+      subject.grade || 'N/A',
+      subject.gradePoints || 0
     ], i % 2 === 1); // Apply alternating row styling
     
     // Add row to worksheet
@@ -157,46 +159,50 @@ export const createSubjectResultsWorksheet = (subjects, title = 'Subject Results
   }
   
   // Calculate totals
-  const totalMarksObtained = subjects.reduce((sum, subject) => sum + subject.marksObtained, 0);
-  const totalPossibleMarks = subjects.reduce((sum, subject) => sum + subject.totalMarks, 0);
-  const totalPercentage = Math.round((totalMarksObtained / totalPossibleMarks) * 100);
-  
-  // Get overall grade
-  let overallGrade;
-  if (totalPercentage >= 90) {
-    overallGrade = 'A+';
-  } else if (totalPercentage >= 80) {
-    overallGrade = 'A';
-  } else if (totalPercentage >= 70) {
-    overallGrade = 'B+';
-  } else if (totalPercentage >= 60) {
-    overallGrade = 'B';
-  } else if (totalPercentage >= 50) {
-    overallGrade = 'C';
-  } else if (totalPercentage >= 40) {
-    overallGrade = 'D';
-  } else {
-    overallGrade = 'F';
-  }
-  
-  // Add total row
-  const totalRow = createTotalRow([
-    'Total',
-    totalMarksObtained,
-    totalPossibleMarks,
-    `${totalPercentage}%`,
-    overallGrade
-  ]);
-  
-  // Add total row to worksheet
-  for (let colIndex = 0; colIndex < totalRow.length; colIndex++) {
-    const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
-    worksheet[cellRef] = totalRow[colIndex];
+  if (subjects.length > 0) {
+    const totalMarksObtained = subjects.reduce((sum, subject) => sum + (subject.marksObtained || 0), 0);
+    const totalPossibleMarks = subjects.reduce((sum, subject) => sum + (subject.totalMarks || 100), 0);
+    const totalCredits = subjects.reduce((sum, subject) => sum + (subject.credits || 0), 0);
+    const totalGradePoints = subjects.reduce((sum, subject) => sum + ((subject.gradePoints || 0) * (subject.credits || 0)), 0);
+    
+    // Calculate SGPA
+    const sgpa = totalCredits > 0 ? (totalGradePoints / totalCredits).toFixed(2) : 0;
+    
+    // Add total row
+    const totalRow = createTotalRow([
+      'Total',
+      '',
+      totalCredits,
+      '',
+      subjects.reduce((sum, subject) => sum + (subject.internalMarks || 0), 0),
+      subjects.reduce((sum, subject) => sum + (subject.externalMarks || 0), 0),
+      totalMarksObtained,
+      '',
+      totalGradePoints
+    ]);
+    
+    // Add total row to worksheet
+    for (let colIndex = 0; colIndex < totalRow.length; colIndex++) {
+      const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+      worksheet[cellRef] = totalRow[colIndex];
+    }
+    
+    rowIndex += 2;
+    
+    // Add SGPA and percentage rows
+    worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 0 })] = createStyledCell('SGPA', { font: { bold: true } });
+    worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 1 })] = createStyledCell(sgpa);
+    
+    rowIndex++;
+    
+    const percentage = (totalMarksObtained / totalPossibleMarks * 100).toFixed(2);
+    worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 0 })] = createStyledCell('Percentage', { font: { bold: true } });
+    worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 1 })] = createStyledCell(`${percentage}%`);
   }
   
   // Apply styling to headers
-  for (let colIndex = 0; colIndex < 5; colIndex++) {
-    const cellRef = XLSX.utils.encode_cell({ r: 2, c: colIndex });
+  for (let colIndex = 0; colIndex < 9; colIndex++) {
+    const cellRef = XLSX.utils.encode_cell({ r: 3, c: colIndex });
     const currentValue = worksheet[cellRef]?.v || '';
     worksheet[cellRef] = createHeaderCell(currentValue);
   }
@@ -207,18 +213,13 @@ export const createSubjectResultsWorksheet = (subjects, title = 'Subject Results
   worksheet[titleCell] = createTitleCell(currentTitle);
   
   // Apply column widths
-  applyColumnWidths(worksheet, [30, 15, 15, 15, 15]);
+  applyColumnWidths(worksheet, [15, 30, 10, 15, 10, 10, 10, 10, 15]);
   
   // Apply cell merges
   applyCellMerges(worksheet, [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } } // Merge title cell across all columns
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }, // Merge title cell across all columns
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }, // Merge subtitle cell across all columns
   ]);
-  
-  // Set worksheet range
-  worksheet['!ref'] = XLSX.utils.encode_range({
-    s: { r: 0, c: 0 },
-    e: { r: rowIndex, c: 4 }
-  });
   
   return worksheet;
 };
@@ -229,24 +230,27 @@ export const createSubjectResultsWorksheet = (subjects, title = 'Subject Results
  * @param {Object} resultSummary - Result summary object
  * @returns {Object} - XLSX worksheet
  */
-export const createStudentInfoWorksheet = (studentInfo, resultSummary) => {
+export const createStudentInfoWorksheet = (studentInfo = {}, resultSummary = {}) => {
   // Create worksheet
   const worksheet = XLSX.utils.aoa_to_sheet([
     ['Student Result Information'],
+    ['SVIT College, Jawaharlal Nehru Technological University, Anantapur'],
     [],
     ['Student Information'],
-    ['Name:', studentInfo.name],
-    ['Roll Number:', studentInfo.rollNumber],
-    ['Class/Section:', studentInfo.class],
-    ['Academic Year:', studentInfo.academicYear],
-    ['Examination:', studentInfo.examination],
+    ['Name:', studentInfo.name || 'N/A'],
+    ['Roll Number:', studentInfo.rollNumber || 'N/A'],
+    ['Registration Number:', studentInfo.registrationNumber || 'N/A'],
+    ['Class/Section:', studentInfo.class || 'N/A'],
+    ['Academic Year:', studentInfo.academicYear || 'N/A'],
+    ['Examination:', studentInfo.examination || 'N/A'],
     [],
     ['Result Summary'],
-    ['Total Marks Obtained:', resultSummary.totalMarksObtained],
-    ['Total Marks:', resultSummary.totalMarks],
-    ['Percentage:', `${resultSummary.percentage}%`],
-    ['Overall Grade:', resultSummary.overallGrade],
-    ['Rank:', resultSummary.rank]
+    ['Total Marks Obtained:', resultSummary.totalMarksObtained || 'N/A'],
+    ['Total Marks:', resultSummary.totalMarks || 'N/A'],
+    ['Percentage:', resultSummary.percentage ? `${resultSummary.percentage}%` : 'N/A'],
+    ['SGPA:', resultSummary.sgpa || 'N/A'],
+    ['Overall Grade:', resultSummary.overallGrade || 'N/A'],
+    ['Rank:', resultSummary.rank || 'N/A']
   ]);
   
   // Apply styling to main title
@@ -254,20 +258,21 @@ export const createStudentInfoWorksheet = (studentInfo, resultSummary) => {
   worksheet[titleCell] = createTitleCell(worksheet[titleCell]?.v || '');
   
   // Apply styling to section headers
-  const studentInfoHeaderCell = XLSX.utils.encode_cell({ r: 2, c: 0 });
+  const studentInfoHeaderCell = XLSX.utils.encode_cell({ r: 3, c: 0 });
   worksheet[studentInfoHeaderCell] = createSectionHeaderCell(worksheet[studentInfoHeaderCell]?.v || '');
   
-  const resultSummaryHeaderCell = XLSX.utils.encode_cell({ r: 9, c: 0 });
+  const resultSummaryHeaderCell = XLSX.utils.encode_cell({ r: 11, c: 0 });
   worksheet[resultSummaryHeaderCell] = createSectionHeaderCell(worksheet[resultSummaryHeaderCell]?.v || '');
   
   // Apply column widths
-  applyColumnWidths(worksheet, [20, 30]);
+  applyColumnWidths(worksheet, [25, 30]);
   
   // Apply cell merges
   applyCellMerges(worksheet, [
     { s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }, // Merge title cell
-    { s: { r: 2, c: 0 }, e: { r: 2, c: 1 } }, // Merge student info header
-    { s: { r: 9, c: 0 }, e: { r: 9, c: 1 } }  // Merge result summary header
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 1 } }, // Merge subtitle cell
+    { s: { r: 3, c: 0 }, e: { r: 3, c: 1 } }, // Merge student info header
+    { s: { r: 11, c: 0 }, e: { r: 11, c: 1 } }  // Merge result summary header
   ]);
   
   return worksheet;
@@ -282,12 +287,13 @@ export const createPerformanceAnalysisWorksheet = (subjects) => {
   // Create worksheet
   const worksheet = XLSX.utils.aoa_to_sheet([
     ['Performance Analysis'],
+    ['SVIT College, Jawaharlal Nehru Technological University, Anantapur'],
     [],
     ['Subject-wise Performance']
   ]);
   
   // Add performance chart data
-  let rowIndex = 3;
+  let rowIndex = 4;
   
   // Headers
   worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 0 })] = createHeaderCell('Subject');
@@ -299,7 +305,7 @@ export const createPerformanceAnalysisWorksheet = (subjects) => {
   // Subject data
   for (let i = 0; i < subjects.length; i++) {
     const subject = subjects[i];
-    const percentage = Math.round((subject.marksObtained / subject.totalMarks) * 100);
+    const percentage = Math.round((subject.marksObtained / (subject.totalMarks || 100)) * 100);
     
     // Determine performance level
     let performanceLevel;
@@ -338,8 +344,8 @@ export const createPerformanceAnalysisWorksheet = (subjects) => {
   
   // Sort subjects by performance
   const sortedSubjects = [...subjects].sort((a, b) => {
-    const percentageA = (a.marksObtained / a.totalMarks) * 100;
-    const percentageB = (b.marksObtained / b.totalMarks) * 100;
+    const percentageA = (a.marksObtained / (a.totalMarks || 100)) * 100;
+    const percentageB = (b.marksObtained / (b.totalMarks || 100)) * 100;
     return percentageB - percentageA;
   });
   
@@ -349,7 +355,7 @@ export const createPerformanceAnalysisWorksheet = (subjects) => {
   
   for (let i = 0; i < Math.min(2, sortedSubjects.length); i++) {
     const subject = sortedSubjects[i];
-    const percentage = Math.round((subject.marksObtained / subject.totalMarks) * 100);
+    const percentage = Math.round((subject.marksObtained / (subject.totalMarks || 100)) * 100);
     
     worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 0 })] = { 
       v: subject.name, 
@@ -371,7 +377,7 @@ export const createPerformanceAnalysisWorksheet = (subjects) => {
   const improvementSubjects = sortedSubjects.slice(-Math.min(2, sortedSubjects.length));
   for (let i = 0; i < improvementSubjects.length; i++) {
     const subject = improvementSubjects[i];
-    const percentage = Math.round((subject.marksObtained / subject.totalMarks) * 100);
+    const percentage = Math.round((subject.marksObtained / (subject.totalMarks || 100)) * 100);
     
     worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 0 })] = { 
       v: subject.name, 
@@ -384,6 +390,29 @@ export const createPerformanceAnalysisWorksheet = (subjects) => {
     rowIndex++;
   }
   
+  // Add recommendations section
+  rowIndex += 2;
+  worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 0 })] = createSectionHeaderCell('Recommendations');
+  rowIndex++;
+  
+  // Add general recommendation
+  let recommendation = "Continue with the current study approach.";
+  
+  // Check if there are subjects below 60%
+  const lowPerformingSubjects = subjects.filter(subject => 
+    (subject.marksObtained / (subject.totalMarks || 100)) * 100 < 60
+  );
+  
+  if (lowPerformingSubjects.length > 0) {
+    const subjectNames = lowPerformingSubjects.map(s => s.name).join(", ");
+    recommendation = `Focus on improving in: ${subjectNames}`;
+  }
+  
+  worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 0 })] = { 
+    v: recommendation, 
+    s: { alignment: { indent: 1 } } 
+  };
+  
   // Apply styling to title
   const titleCell = XLSX.utils.encode_cell({ r: 0, c: 0 });
   worksheet[titleCell] = createTitleCell(worksheet[titleCell]?.v || '');
@@ -394,15 +423,12 @@ export const createPerformanceAnalysisWorksheet = (subjects) => {
   // Apply cell merges
   applyCellMerges(worksheet, [
     { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }, // Merge title cell
-    { s: { r: 2, c: 0 }, e: { r: 2, c: 2 } }, // Merge performance section header
-    { s: { r: rowIndex - improvementSubjects.length - 2, c: 0 }, e: { r: rowIndex - improvementSubjects.length - 2, c: 2 } } // Merge areas for improvement header
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } }, // Merge subtitle cell
+    { s: { r: 3, c: 0 }, e: { r: 3, c: 2 } }, // Merge performance section header
+    { s: { r: rowIndex - improvementSubjects.length - 5, c: 0 }, e: { r: rowIndex - improvementSubjects.length - 5, c: 2 } }, // Merge strengths and improvement header
+    { s: { r: rowIndex - improvementSubjects.length - 2, c: 0 }, e: { r: rowIndex - improvementSubjects.length - 2, c: 2 } }, // Merge areas for improvement header
+    { s: { r: rowIndex - 1, c: 0 }, e: { r: rowIndex - 1, c: 2 } } // Merge recommendations header
   ]);
-  
-  // Set worksheet range
-  worksheet['!ref'] = XLSX.utils.encode_range({
-    s: { r: 0, c: 0 },
-    e: { r: rowIndex, c: 2 }
-  });
   
   return worksheet;
 };

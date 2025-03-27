@@ -1,9 +1,14 @@
-// This service handles Excel generation and downloading
+// Enhanced Excel service that handles Excel generation and downloading
 import * as XLSX from 'xlsx';
+import { 
+  createStudentInfoWorksheet, 
+  createSubjectResultsWorksheet, 
+  createPerformanceAnalysisWorksheet 
+} from '../utils/excelGenerator';
 
 /**
- * Generate Excel file(s) from the processed ECE results
- * @param {Array<Object>} results - Array of ECE result objects
+ * Generate Excel file(s) from the processed results
+ * @param {Array<Object>} results - Array of result objects
  * @param {Object} options - Options for Excel generation
  * @returns {Promise<void>}
  */
@@ -47,18 +52,32 @@ const generateIndividualExcels = async (results, options) => {
     const workbook = XLSX.utils.book_new();
     
     // Add student information worksheet
-    addStudentInfoWorksheet(workbook, result);
+    const studentInfoSheet = createStudentInfoWorksheet(result.data?.studentInfo, {
+      totalMarksObtained: result.data?.totalMarksObtained,
+      totalMarks: result.data?.totalMarks,
+      percentage: result.data?.percentage,
+      sgpa: result.data?.sgpa,
+      overallGrade: result.data?.overallGrade,
+      rank: result.data?.rank
+    });
+    XLSX.utils.book_append_sheet(workbook, studentInfoSheet, 'Student Info');
     
     // Add subject results worksheet
-    addECESubjectResultsWorksheet(workbook, result);
+    const subjectsSheet = createSubjectResultsWorksheet(result.data?.subjects || [], 'Subject Results');
+    XLSX.utils.book_append_sheet(workbook, subjectsSheet, 'Subject Results');
     
     // Add analytics worksheet if required
     if (options.includeAnalytics) {
-      addAnalyticsWorksheet(workbook, result);
+      const analyticsSheet = createPerformanceAnalysisWorksheet(result.data?.subjects || []);
+      XLSX.utils.book_append_sheet(workbook, analyticsSheet, 'Performance Analysis');
     }
     
     // Generate filename
-    const filename = generateFilename(result, options);
+    const studentName = result.data?.studentInfo?.name 
+      ? result.data.studentInfo.name.replace(/\s+/g, '_') 
+      : 'Unknown';
+    const rollNumber = result.data?.studentInfo?.rollNumber || '';
+    const filename = `SVIT_Result_${studentName}_${rollNumber}_${new Date().toISOString().slice(0, 10)}.${options.format}`;
     
     // Write the workbook and trigger download
     XLSX.writeFile(workbook, filename);
@@ -88,18 +107,18 @@ const generateCombinedExcel = async (results, options) => {
       ? `${result.data.studentInfo.name.slice(0, 20)}` 
       : `Result ${index + 1}`;
     
-    // Add the worksheet
-    const worksheet = createECEResultWorksheet(result);
-    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    // Add subject results for this student
+    const subjectsSheet = createSubjectResultsWorksheet(result.data?.subjects || [], `Results for ${sheetName}`);
+    XLSX.utils.book_append_sheet(workbook, subjectsSheet, sheetName);
   }
   
   // Add comparative analysis if required
   if (options.includeComparison) {
-    addECEComparativeWorksheet(workbook, results);
+    addComparativeWorksheet(workbook, results);
   }
   
   // Generate filename
-  const filename = `ECE_Combined_Results_${new Date().toISOString().slice(0, 10)}.${options.format}`;
+  const filename = `SVIT_Combined_Results_${new Date().toISOString().slice(0, 10)}.${options.format}`;
   
   // Write the workbook and trigger download
   XLSX.writeFile(workbook, filename);
@@ -120,231 +139,49 @@ const generateSummaryExcel = async (results, options) => {
   
   // Add comparative analysis if required
   if (options.includeComparison) {
-    addECEComparativeWorksheet(workbook, results);
+    addComparativeWorksheet(workbook, results);
   }
   
   // Generate filename
-  const filename = `ECE_Results_Summary_${new Date().toISOString().slice(0, 10)}.${options.format}`;
+  const filename = `SVIT_Results_Summary_${new Date().toISOString().slice(0, 10)}.${options.format}`;
   
   // Write the workbook and trigger download
   XLSX.writeFile(workbook, filename);
 };
 
 /**
- * Add a student information worksheet to the workbook
+ * Add a summary worksheet to the workbook for multiple results
  * @param {Object} workbook - XLSX workbook
- * @param {Object} result - Result object containing ECE student data
- */
-const addStudentInfoWorksheet = (workbook, result) => {
-  // Extract student data from the result
-  const { data } = result;
-  const studentInfo = data?.studentInfo || {};
-  
-  // Create worksheet data
-  const wsData = [
-    ['Student Information'],
-    ['Name', studentInfo.name || 'N/A'],
-    ['Roll Number', studentInfo.rollNumber || 'N/A'],
-    ['Registration Number', studentInfo.registrationNumber || 'N/A'],
-    ['Class/Section', studentInfo.class || 'N/A'],
-    ['Academic Year', studentInfo.academicYear || 'N/A'],
-    ['Examination', studentInfo.examination || 'N/A'],
-    [],
-    ['Result Summary'],
-    ['Total Marks Obtained', data?.totalMarksObtained || 'N/A'],
-    ['Total Marks', data?.totalMarks || 'N/A'],
-    ['Total Credits', data?.totalCredits || 'N/A'],
-    ['Total Grade Points', data?.totalGradePoints || 'N/A'],
-    ['SGPA', data?.sgpa || 'N/A'],
-    ['Percentage', data?.percentage ? `${data.percentage}%` : 'N/A'],
-    ['Overall Grade', data?.overallGrade || 'N/A'],
-    ['Rank', data?.rank || 'N/A']
-  ];
-  
-  // Create worksheet
-  const worksheet = XLSX.utils.aoa_to_sheet(wsData);
-  
-  // Style the worksheet (headers, etc.)
-  styleWorksheet(worksheet);
-  
-  // Add the worksheet to the workbook
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Student Info');
-};
-
-/**
- * Add a subject results worksheet to the workbook specifically for ECE subjects
- * @param {Object} workbook - XLSX workbook
- * @param {Object} result - Result object containing ECE subject data
- */
-const addECESubjectResultsWorksheet = (workbook, result) => {
-  // Extract subject data from the result
-  const { data } = result;
-  const subjects = data?.subjects || [];
-  
-  // Create worksheet headers
-  const wsData = [
-    ['Subject-wise Results for ECE 2nd Year 1st Semester'],
-    [],
-    ['Course Code', 'Subject', 'Credits', 'Type', 'Internal (40)', 'External (60)', 'Total (100)', 'Grade', 'Grade Points']
-  ];
-  
-  // Add subject data rows
-  for (const subject of subjects) {
-    wsData.push([
-      subject.courseCode || 'N/A',
-      subject.name || 'N/A',
-      subject.credits || 0,
-      subject.type || 'N/A',
-      subject.internalMarks || 0,
-      subject.externalMarks || 0,
-      subject.marksObtained || 0,
-      subject.grade || 'N/A',
-      subject.gradePoints || 0
-    ]);
-  }
-  
-  // Add total row if subjects exist
-  if (subjects.length > 0) {
-    wsData.push([
-      'Total',
-      '',
-      data.totalCredits || subjects.reduce((sum, subject) => sum + (subject.credits || 0), 0),
-      '',
-      subjects.reduce((sum, subject) => sum + (subject.internalMarks || 0), 0),
-      subjects.reduce((sum, subject) => sum + (subject.externalMarks || 0), 0),
-      data.totalMarksObtained || subjects.reduce((sum, subject) => sum + (subject.marksObtained || 0), 0),
-      data.overallGrade || 'N/A',
-      data.totalGradePoints || subjects.reduce((sum, subject) => sum + (subject.gradePoints * subject.credits || 0), 0)
-    ]);
-  }
-  
-  // Create worksheet
-  const worksheet = XLSX.utils.aoa_to_sheet(wsData);
-  
-  // Style the worksheet (headers, etc.)
-  styleWorksheet(worksheet);
-  
-  // Add the worksheet to the workbook
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Subject Results');
-};
-
-/**
- * Add an analytics worksheet to the workbook
- * @param {Object} workbook - XLSX workbook
- * @param {Object} result - Result object
- */
-const addAnalyticsWorksheet = (workbook, result) => {
-  // Extract data from the result
-  const { data } = result;
-  const subjects = data?.subjects || [];
-  
-  // Create worksheet data for subject-wise performance
-  const wsData = [
-    ['Subject-wise Performance Analysis for ECE Courses'],
-    [],
-    ['Subject', 'Percentage', 'Performance Level']
-  ];
-  
-  // Add subject data with performance level
-  for (const subject of subjects) {
-    const percentage = Math.round((subject.marksObtained / 100) * 100); // Assuming total marks is 100
-    let performanceLevel = 'N/A';
-    
-    if (percentage >= 90) {
-      performanceLevel = 'Excellent';
-    } else if (percentage >= 75) {
-      performanceLevel = 'Very Good';
-    } else if (percentage >= 60) {
-      performanceLevel = 'Good';
-    } else if (percentage >= 45) {
-      performanceLevel = 'Satisfactory';
-    } else {
-      performanceLevel = 'Needs Improvement';
-    }
-    
-    wsData.push([
-      subject.name || 'N/A',
-      percentage,
-      performanceLevel
-    ]);
-  }
-  
-  // Add strengths and weaknesses based on performance
-  wsData.push(
-    [],
-    ['Strengths and Areas for Improvement Based on ECE Curriculum'],
-    []
-  );
-  
-  // Identify strengths (subjects with highest marks)
-  const sortedSubjects = [...subjects].sort((a, b) => {
-    const percentageA = (a.marksObtained / 100) * 100;
-    const percentageB = (b.marksObtained / 100) * 100;
-    return percentageB - percentageA;
-  });
-  
-  // Add strengths (top 2 subjects or all if less than 2)
-  wsData.push(['Strengths']);
-  const strengthSubjects = sortedSubjects.slice(0, Math.min(2, sortedSubjects.length));
-  for (const subject of strengthSubjects) {
-    const percentage = Math.round((subject.marksObtained / 100) * 100);
-    wsData.push([`${subject.name}: ${percentage}%`]);
-  }
-  
-  wsData.push([]);
-  
-  // Add areas for improvement (bottom 2 subjects or all if less than 2)
-  wsData.push(['Areas for Improvement']);
-  const improvementSubjects = sortedSubjects.slice(-Math.min(2, sortedSubjects.length));
-  for (const subject of improvementSubjects) {
-    const percentage = Math.round((subject.marksObtained / 100) * 100);
-    wsData.push([`${subject.name}: ${percentage}%`]);
-  }
-  
-  // Create worksheet
-  const worksheet = XLSX.utils.aoa_to_sheet(wsData);
-  
-  // Style the worksheet (headers, etc.)
-  styleWorksheet(worksheet);
-  
-  // Add the worksheet to the workbook
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Performance Analysis');
-};
-
-/**
- * Add a summary worksheet to the workbook for multiple ECE results
- * @param {Object} workbook - XLSX workbook
- * @param {Array<Object>} results - Array of ECE result objects
+ * @param {Array<Object>} results - Array of result objects
  */
 const addSummaryWorksheet = (workbook, results) => {
   // Create worksheet headers
   const wsData = [
-    ['Summary of ECE 2nd Year 1st Semester Results'],
+    ['SVIT College - Summary of Student Results'],
+    ['Jawaharlal Nehru Technological University, Anantapur'],
     [],
-    ['Student Name', 'Roll Number', 'Registration Number', 'Total Marks', 'SGPA', 'Percentage', 'Grade', 'Rank']
+    ['Student Name', 'Roll Number', 'Total Marks', 'SGPA', 'Percentage', 'Grade', 'Rank']
   ];
   
   // Add data rows for each result
   for (const result of results) {
-    const { data } = result;
-    const studentInfo = data?.studentInfo || {};
+    const studentInfo = result.data?.studentInfo || {};
     
     wsData.push([
       studentInfo.name || 'N/A',
       studentInfo.rollNumber || 'N/A',
-      studentInfo.registrationNumber || 'N/A',
-      `${data?.totalMarksObtained || 0}/${data?.totalMarks || 0}`,
-      data?.sgpa || 'N/A',
-      data?.percentage ? `${data.percentage}%` : 'N/A',
-      data?.overallGrade || 'N/A',
-      data?.rank ? `${data.rank}/60` : 'N/A'
+      `${result.data?.totalMarksObtained || 0}/${result.data?.totalMarks || 0}`,
+      result.data?.sgpa || 'N/A',
+      result.data?.percentage ? `${result.data.percentage}%` : 'N/A',
+      result.data?.overallGrade || 'N/A',
+      result.data?.rank || 'N/A'
     ]);
   }
   
   // Add overall statistics
   wsData.push(
     [],
-    ['Overall Class Statistics for ECE Department'],
+    ['Overall Class Statistics'],
     []
   );
   
@@ -392,28 +229,41 @@ const addSummaryWorksheet = (workbook, results) => {
   // Create worksheet
   const worksheet = XLSX.utils.aoa_to_sheet(wsData);
   
-  // Style the worksheet (headers, etc.)
-  styleWorksheet(worksheet);
+  // Apply some basic styling
+  if (worksheet['!cols']) {
+    worksheet['!cols'] = worksheet['!cols'].map(col => ({ ...col, width: 15 }));
+  } else {
+    worksheet['!cols'] = [
+      { width: 25 },  // Student Name
+      { width: 15 },  // Roll Number
+      { width: 15 },  // Total Marks
+      { width: 10 },  // SGPA
+      { width: 15 },  // Percentage
+      { width: 10 },  // Grade
+      { width: 10 }   // Rank
+    ];
+  }
   
   // Add the worksheet to the workbook
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Summary');
 };
 
 /**
- * Add a comparative analysis worksheet for ECE subjects to the workbook
+ * Add a comparative analysis worksheet to the workbook
  * @param {Object} workbook - XLSX workbook
  * @param {Array<Object>} results - Array of result objects
  */
-const addECEComparativeWorksheet = (workbook, results) => {
+const addComparativeWorksheet = (workbook, results) => {
   // Create worksheet headers
   const wsData = [
-    ['Comparative Analysis of ECE 2nd Year 1st Semester Results'],
+    ['Comparative Analysis of Student Results'],
+    ['SVIT College, Jawaharlal Nehru Technological University, Anantapur'],
     [],
     ['Subject-wise Performance Comparison'],
     []
   ];
   
-  // Get all unique ECE subjects across results
+  // Get all unique subjects across results
   const allSubjects = new Set();
   for (const result of results) {
     const subjects = result.data?.subjects || [];
@@ -538,124 +388,15 @@ const addECEComparativeWorksheet = (workbook, results) => {
   // Create worksheet
   const worksheet = XLSX.utils.aoa_to_sheet(wsData);
   
-  // Style the worksheet (headers, etc.)
-  styleWorksheet(worksheet);
+  // Apply some basic column widths
+  worksheet['!cols'] = [
+    { width: 25 },  // Subject/Metric
+    ...Array(results.length).fill({ width: 15 }),  // Student columns
+    { width: 15 }   // Average column
+  ];
   
   // Add the worksheet to the workbook
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Comparative Analysis');
 };
 
-/**
- * Create a result worksheet for a single ECE result
- * @param {Object} result - Result object
- * @returns {Object} - XLSX worksheet
- */
-const createECEResultWorksheet = (result) => {
-  // Extract data from the result
-  const { data } = result;
-  const studentInfo = data?.studentInfo || {};
-  const subjects = data?.subjects || [];
-  
-  // Create worksheet data
-  const wsData = [
-    [`ECE Result: ${studentInfo.name || 'N/A'}`],
-    [],
-    ['Student Information'],
-    ['Name', studentInfo.name || 'N/A'],
-    ['Roll Number', studentInfo.rollNumber || 'N/A'],
-    ['Registration Number', studentInfo.registrationNumber || 'N/A'],
-    ['Class/Section', studentInfo.class || 'N/A'],
-    [],
-    ['Subject Results'],
-    ['Course Code', 'Subject', 'Credits', 'Type', 'Internal', 'External', 'Total', 'Grade', 'Grade Points']
-  ];
-  
-  // Add subject data rows
-  for (const subject of subjects) {
-    wsData.push([
-      subject.courseCode || 'N/A',
-      subject.name || 'N/A',
-      subject.credits || 0,
-      subject.type || 'N/A',
-      subject.internalMarks || 0,
-      subject.externalMarks || 0,
-      subject.marksObtained || 0,
-      subject.grade || 'N/A',
-      subject.gradePoints || 0
-    ]);
-  }
-  
-  // Add total row if subjects exist
-  if (subjects.length > 0) {
-    wsData.push([
-      'Total',
-      '',
-      data.totalCredits || subjects.reduce((sum, subject) => sum + (subject.credits || 0), 0),
-      '',
-      subjects.reduce((sum, subject) => sum + (subject.internalMarks || 0), 0),
-      subjects.reduce((sum, subject) => sum + (subject.externalMarks || 0), 0),
-      data.totalMarksObtained || subjects.reduce((sum, subject) => sum + (subject.marksObtained || 0), 0),
-      data.overallGrade || 'N/A',
-      data.totalGradePoints || subjects.reduce((sum, subject) => sum + (subject.gradePoints * subject.credits || 0), 0)
-    ]);
-    
-    // Add SGPA and percentage information
-    wsData.push(
-      [],
-      ['SGPA', data.sgpa || 'N/A'],
-      ['Percentage', data.percentage ? `${data.percentage}%` : 'N/A'],
-      ['Rank', data.rank ? `${data.rank}/60` : 'N/A']
-    );
-  }
-  
-  // Create worksheet
-  const worksheet = XLSX.utils.aoa_to_sheet(wsData);
-  
-  // Style the worksheet
-  styleWorksheet(worksheet);
-  
-  return worksheet;
-};
-
-/**
- * Style a worksheet with formatting
- * @param {Object} worksheet - XLSX worksheet
- */
-const styleWorksheet = (worksheet) => {
-  // This function would apply styling to the worksheet
-  // Like cell merging, colors, fonts, etc.
-  // Note: Basic styling capabilities in XLSX are limited in client-side JS
-  // For advanced styling, a server-side solution might be needed
-  
-  // We can set some basic properties
-  worksheet['!cols'] = [
-    { wch: 15 }, // Course Code
-    { wch: 25 }, // Subject
-    { wch: 10 }, // Credits
-    { wch: 12 }, // Type
-    { wch: 15 }, // Internal
-    { wch: 15 }, // External
-    { wch: 15 }, // Total
-    { wch: 12 }, // Grade
-    { wch: 15 }  // Grade Points
-  ];
-};
-
-/**
- * Generate a filename for the Excel file
- * @param {Object} result - Result object
- * @param {Object} options - Options for Excel generation
- * @returns {string} - The filename
- */
-const generateFilename = (result, options) => {
-  const { data } = result;
-  const studentInfo = data?.studentInfo || {};
-  const studentName = studentInfo.name 
-    ? studentInfo.name.replace(/\s+/g, '_') 
-    : 'Unknown';
-  
-  const rollNumber = studentInfo.rollNumber || '';
-  const date = new Date().toISOString().slice(0, 10);
-  
-  return `ECE_Result_${studentName}_${rollNumber}_${date}.${options.format}`;
-};
+export default generateExcel;
